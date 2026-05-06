@@ -1,5 +1,6 @@
 from pathlib import Path
 import random
+import heapq
 
 MIN_LEN = 7
 MAX_LEN = 10
@@ -12,7 +13,7 @@ VOWELS = "AEIOU"
 CONSONANT_PENALTY = 1.75
 VOWEL_PENALTY = 1.5
 
-MAX_PENALTY = 4
+MAX_PENALTY = 3
 
 def parseWordList(fname):
     wordScores: dict[str, float] = {}
@@ -66,6 +67,14 @@ def rescore(scores: dict[str, float], maxPenalty: float):
             results[word] = penalty
     return results
 
+def es_sample(d: dict[str, float], k: int) -> list[str]:
+    sorted_keys = sorted(d, key=d.get) # type: ignore
+    n = len(sorted_keys)
+    weights = list(range(n, 0, -1))
+    # key = u^(1/w), take top k
+    keyed = [(random.random() ** (1.0 / w), key) for w, key in zip(weights, sorted_keys)]
+    return [key for _, key in heapq.nlargest(k, keyed)]
+
 wordScores = parseWordList(Path.cwd().parent / "words.txt")
 candidates = lengthFilter(scoreFilter(wordScores, MIN_SCORE), MIN_LEN, MAX_LEN)
 remainder = 0
@@ -80,5 +89,5 @@ with open("possibilities.txt", "w") as f:
     for length in range(MIN_LEN, MAX_LEN + 1):
         if len(penalized[length]) > 0:
             f.write(f"Length {length} ({len(penalized[length])}):\n")
-            for word in random.sample(list(penalized[length].keys()), min(DISPLAY, len(penalized[length]))):
+            for word in es_sample(penalized[length], min(DISPLAY, len(penalized[length]))):
                 f.write(f"\t{word}: {penalized[length][word]:.2f} {candidates[length][word]}\n")
